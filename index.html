@@ -1,0 +1,1005 @@
+// ==================== SIPANDAI - GOOGLE APPS SCRIPT BACKEND - FINAL VERSION ====================
+// Upload file SUDAH DIPERBAIKI & TERINTEGRASI PENUH
+
+// ===== CONFIGURATION =====
+const SPREADSHEET_ID = '10IBqvGho3kasu79HS3mw60OGX-dVKOcRoCLQN_niglU';
+const DRIVE_FOLDER_ID = '1Byrx5kjCOPiqFC5HsEFikVxujI9zRLnL';
+
+const SHEETS = {
+  SEKOLAH: 'Sekolah',
+  PENGGUNA: 'Pengguna',
+  JURNAL: 'Jurnal',
+  MASUKAN: 'Masukan',
+  KELAS: 'Kelas',
+  UPLOAD: 'Upload',
+  LOGS: 'Logs'
+};
+
+// ===== SETUP FUNCTION - RUN THIS ONCE =====
+function setupSIPANDAI() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  Logger.log('📋 Starting SIPANDAI setup...');
+  
+  try {
+    // Create all sheets
+    createAllSheets(ss);
+    Logger.log('✓ Sheets created');
+    
+    // Initialize data
+    initSekolahSheet(ss);
+    Logger.log('✓ Sekolah data initialized');
+    
+    initKelasSheet(ss);
+    Logger.log('✓ Kelas data initialized');
+    
+    initPenggunaSheet(ss);
+    Logger.log('✓ Pengguna (users) data initialized');
+    
+    initJurnalSheet(ss);
+    Logger.log('✓ Jurnal data initialized with samples');
+    
+    initMasukanSheet(ss);
+    Logger.log('✓ Masukan data initialized with samples');
+    
+    initUploadSheet(ss);
+    Logger.log('✓ Upload tracking sheet initialized');
+    
+    initLogsSheet(ss);
+    Logger.log('✓ Logs sheet initialized');
+    
+    Logger.log('✅ SIPANDAI setup completed successfully!');
+    Logger.log('📊 Next steps:');
+    Logger.log('1. Click Deploy -> New Deployment');
+    Logger.log('2. Type: Web app');
+    Logger.log('3. Execute as: Your email');
+    Logger.log('4. Who has access: Anyone');
+    Logger.log('5. Copy URL and update SCRIPT_URL in frontend');
+    
+  } catch (error) {
+    Logger.log('❌ Setup failed: ' + error.message);
+    throw error;
+  }
+}
+
+// ===== CREATE/INITIALIZE SHEETS =====
+function createAllSheets(ss) {
+  const sheetNames = Object.values(SHEETS);
+  const existingSheets = ss.getSheets();
+  
+  // Delete existing sheets (keep first one)
+  for (let i = existingSheets.length - 1; i > 0; i--) {
+    const sheetName = existingSheets[i].getName();
+    if (sheetNames.includes(sheetName)) {
+      ss.deleteSheet(existingSheets[i]);
+    }
+  }
+  
+  // Create new sheets
+  for (let sheetName of sheetNames) {
+    try {
+      ss.insertSheet(sheetName);
+    } catch (e) {
+      Logger.log('Sheet exists: ' + sheetName);
+    }
+  }
+}
+
+function initSekolahSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.SEKOLAH);
+  sheet.clearContents();
+  
+  const headers = ['ID', 'Nama Sekolah', 'Alamat', 'Kota', 'Provinsi', 'Tanggal Dibuat'];
+  sheet.appendRow(headers);
+  
+  const data = [
+    ['1', 'SD Negeri 1 Jakarta', 'Jl. Pendidikan No. 1', 'Jakarta', 'DKI Jakarta', new Date()],
+    ['2', 'SD Negeri 2 Jakarta', 'Jl. Pendidikan No. 2', 'Jakarta', 'DKI Jakarta', new Date()],
+    ['3', 'SD Negeri 3 Bandung', 'Jl. Pendidikan No. 3', 'Bandung', 'Jawa Barat', new Date()]
+  ];
+  
+  data.forEach(row => sheet.appendRow(row));
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initKelasSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.KELAS);
+  sheet.clearContents();
+  
+  const headers = ['ID', 'SchoolID', 'Nama Kelas', 'Tingkat', 'Wali Kelas', 'Tahun Akademik'];
+  sheet.appendRow(headers);
+  
+  const data = [
+    ['1', '1', 'I-A', '1', 'Budi Santoso, S.Pd', '2024/2025'],
+    ['2', '1', 'I-B', '1', 'Sari Dewi, S.Pd', '2024/2025'],
+    ['3', '1', 'II-A', '2', 'Ahmad Yani, S.Pd', '2024/2025'],
+    ['4', '1', 'II-B', '2', 'Budi Santoso, S.Pd', '2024/2025'],
+    ['5', '1', 'III-A', '3', 'Sari Dewi, S.Pd', '2024/2025'],
+    ['6', '1', 'III-B', '3', 'Ahmad Yani, S.Pd', '2024/2025'],
+    ['7', '1', 'IV-A', '4', 'Guru A', '2024/2025'],
+    ['8', '1', 'IV-B', '4', 'Guru B', '2024/2025'],
+    ['9', '1', 'V-A', '5', 'Guru C', '2024/2025'],
+    ['10', '1', 'V-B', '5', 'Guru D', '2024/2025'],
+    ['11', '1', 'VI-A', '6', 'Guru E', '2024/2025'],
+    ['12', '1', 'VI-B', '6', 'Guru F', '2024/2025']
+  ];
+  
+  data.forEach(row => sheet.appendRow(row));
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initPenggunaSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.PENGGUNA);
+  sheet.clearContents();
+  
+  const headers = ['ID', 'Username', 'Password', 'Nama', 'Role', 'SchoolID', 'NIP', 'MapelGuru', 'KelasGuru', 'AnakNama', 'KelasOrtu', 'Tanggal Dibuat'];
+  sheet.appendRow(headers);
+  
+  const users = [
+    // Demo Guru
+    ['1', 'guru', '123456', 'Budi Santoso, S.Pd', 'guru', '1', '198501012010011001', 'Matematika', 'I-A|I-B|II-A', '', '', new Date()],
+    ['2', 'guru2', '123456', 'Sari Dewi, S.Pd', 'guru', '1', '197002022015012001', 'Bahasa Indonesia', 'II-B|III-A|III-B', '', '', new Date()],
+    ['3', 'guru3', '123456', 'Ahmad Yani, S.Pd', 'guru', '1', '196803032018011001', 'IPA', 'IV-A|IV-B|V-A', '', '', new Date()],
+    
+    // Demo Kepala Sekolah
+    ['4', 'kepsek', '123456', 'Dr. Siti Aminah, M.Pd', 'kepala_sekolah', '1', '197001011995011001', '', '', '', '', new Date()],
+    
+    // Demo Orang Tua
+    ['5', 'ortu', '123456', 'Ahmad Hidayat', 'orang_tua', '1', '', '', '', 'Muhammad Farhan', 'I-A', new Date()],
+    ['6', 'ortu2', '123456', 'Siti Rahayu', 'orang_tua', '1', '', '', '', 'Anisa Putri', 'I-B', new Date()],
+    ['7', 'ortu3', '123456', 'Rudi Hartono', 'orang_tua', '1', '', '', '', 'Budi Hartono', 'II-A', new Date()]
+  ];
+  
+  users.forEach(row => sheet.appendRow(row));
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initJurnalSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.JURNAL);
+  sheet.clearContents();
+  
+  const headers = ['ID', 'GuruID', 'GuruNama', 'SchoolID', 'Tanggal', 'Kelas', 'JamMulai', 'JamSelesai', 'Mapel', 'Hadir', 'Sakit', 'Izin', 'Alpha', 'Tujuan', 'Metode', 'Catatan', 'Perbaikan', 'DokumentasiNama', 'DokumentasiURL', 'DokumentasiFileID', 'Timestamp'];
+  sheet.appendRow(headers);
+  
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24*60*60*1000);
+  const twoDaysAgo = new Date(today.getTime() - 2*24*60*60*1000);
+  
+  const jurnals = [
+    [
+      Utilities.getUuid(), '1', 'Budi Santoso, S.Pd', '1',
+      today.toISOString().split('T')[0],
+      'I-A', '08:00', '09:30', 'Matematika',
+      28, 1, 1, 0,
+      'Memahami konsep penjumlahan dasar',
+      'Discovery Learning',
+      'Siswa sangat antusias. Sebagian besar dapat menyelesaikan soal dengan benar.',
+      'Tingkatkan latihan soal untuk siswa yang lambat',
+      '', '', '',
+      new Date().toISOString()
+    ],
+    [
+      Utilities.getUuid(), '2', 'Sari Dewi, S.Pd', '1',
+      yesterday.toISOString().split('T')[0],
+      'I-B', '09:30', '11:00', 'Bahasa Indonesia',
+      30, 0, 0, 0,
+      'Mengenal huruf vokal dan konsonan',
+      'Project Based Learning',
+      'Siswa membuat tulisan sederhana. Hasil karya bagus dan kreatif.',
+      'Dorong siswa untuk terus berlatih menulis',
+      '', '', '',
+      new Date().toISOString()
+    ],
+    [
+      Utilities.getUuid(), '1', 'Budi Santoso, S.Pd', '1',
+      twoDaysAgo.toISOString().split('T')[0],
+      'II-A', '10:00', '11:30', 'Matematika',
+      29, 0, 1, 0,
+      'Operasi hitung pengurangan',
+      'Cooperative Learning',
+      'Pembelajaran dengan metode kelompok sangat efektif.',
+      'Konsisten menggunakan metode kelompok',
+      '', '', '',
+      new Date().toISOString()
+    ],
+    [
+      Utilities.getUuid(), '3', 'Ahmad Yani, S.Pd', '1',
+      yesterday.toISOString().split('T')[0],
+      'IV-A', '11:00', '12:30', 'IPA',
+      27, 2, 1, 0,
+      'Memahami siklus air di alam',
+      'Eksperimen dan Diskusi',
+      'Siswa melakukan pengamatan langsung terhadap penguapan dan kondensasi.',
+      'Sediakan lebih banyak media pembelajaran visual',
+      '', '', '',
+      new Date().toISOString()
+    ]
+  ];
+  
+  jurnals.forEach(row => sheet.appendRow(row));
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initMasukanSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.MASUKAN);
+  sheet.clearContents();
+  
+  const headers = ['ID', 'OrtuID', 'OrtuNama', 'AnakNama', 'SchoolID', 'Tanggal', 'Kelas', 'Positif', 'Perbaikan', 'Saran', 'DokumentasiNama', 'DokumentasiURL', 'DokumentasiFileID', 'Timestamp'];
+  sheet.appendRow(headers);
+  
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24*60*60*1000);
+  
+  const masukans = [
+    [
+      Utilities.getUuid(), '5', 'Ahmad Hidayat', 'Muhammad Farhan', '1',
+      today.toISOString().split('T')[0],
+      'I-A',
+      'Guru-guru sangat sabar dan memberikan perhatian individual. Fasilitas sekolah bagus dan terawat.',
+      'Kantin masih terbatas pilihan. Perlu area bermain lebih luas.',
+      'Tambahkan ekstrakurikuler olahraga dan seni. Perbanyak buku di perpustakaan.',
+      '', '', '',
+      new Date().toISOString()
+    ],
+    [
+      Utilities.getUuid(), '6', 'Siti Rahayu', 'Anisa Putri', '1',
+      yesterday.toISOString().split('T')[0],
+      'I-B',
+      'Pembelajaran sangat aktif dan menyenangkan. Komunikasi dengan orang tua bagus. Karakter ditanamkan dengan baik.',
+      'Toilet perlu diperbaiki. Peralatan bermain perlu diperbarui.',
+      'Tambah jam bimbingan belajar membaca dan menulis. Program peer-learning.',
+      '', '', '',
+      new Date().toISOString()
+    ],
+    [
+      Utilities.getUuid(), '7', 'Rudi Hartono', 'Budi Hartono', '1',
+      today.toISOString().split('T')[0],
+      'II-A',
+      'Program sekolah terstruktur dan transparan. Komunikasi dengan orang tua sangat baik melalui aplikasi.',
+      'Parkir saat jemput kurang teratur. Perlu pengaturan lebih baik.',
+      'Tambahkan program kreativitas siswa. Kegiatan outdoor untuk soft skills.',
+      '', '', '',
+      new Date().toISOString()
+    ]
+  ];
+  
+  masukans.forEach(row => sheet.appendRow(row));
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initUploadSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.UPLOAD);
+  sheet.clearContents();
+  
+  const headers = ['FileID', 'FileName', 'MimeType', 'FileSize', 'UploadedBy', 'UserID', 'UserRole', 'SchoolID', 'TipeUpload', 'ReferenceID', 'FileURL', 'UploadDate', 'Status'];
+  sheet.appendRow(headers);
+  formatHeaderRow(sheet, headers.length);
+}
+
+function initLogsSheet(ss) {
+  const sheet = ss.getSheetByName(SHEETS.LOGS);
+  sheet.clearContents();
+  
+  const headers = ['Timestamp', 'Action', 'UserID', 'SchoolID', 'Details', 'Status'];
+  sheet.appendRow(headers);
+  formatHeaderRow(sheet, headers.length);
+}
+
+// ===== WEB APP ENTRY POINTS =====
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    
+    switch(action) {
+      case 'getSchools':
+        return getSchools();
+      case 'getKelas':
+        return getKelas(e.parameter);
+      case 'getJurnalGuru':
+        return getJurnalGuru(e.parameter);
+      case 'getAllJurnal':
+        return getAllJurnal(e.parameter);
+      case 'getOrtuMasukan':
+        return getOrtuMasukan(e.parameter);
+      case 'getAllMasukan':
+        return getAllMasukan(e.parameter);
+      case 'getKepsekStats':
+        return getKepsekStats(e.parameter);
+      case 'getAllUsers':
+        return getAllUsers(e.parameter);
+      default:
+        return sendResponse(false, 'Invalid action: ' + action, {});
+    }
+  } catch (error) {
+    logAction('error_get', 'unknown', 'unknown', 'GET error: ' + error.message, 'error');
+    return sendResponse(false, 'Server error: ' + error.message, {});
+  }
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+    
+    switch(action) {
+      case 'login':
+        return login(data);
+      case 'saveJurnal':
+        return saveJurnal(data);
+      case 'saveMasukan':
+        return saveMasukan(data);
+      case 'uploadFile':
+        return uploadFile(data);
+      default:
+        return sendResponse(false, 'Invalid action: ' + action, {});
+    }
+  } catch (error) {
+    logAction('error_post', 'unknown', 'unknown', 'POST error: ' + error.message, 'error');
+    return sendResponse(false, 'Server error: ' + error.message, {});
+  }
+}
+
+// ===== AUTHENTICATION =====
+function login(data) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const penggunaSheet = ss.getSheetByName(SHEETS.PENGGUNA);
+    
+    if (!penggunaSheet || !penggunaSheet.getLastRow() || penggunaSheet.getLastRow() <= 1) {
+      return sendResponse(false, 'Data pengguna tidak ditemukan', {});
+    }
+    
+    const dataRange = penggunaSheet.getDataRange().getValues();
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const username = row[1] ? row[1].toString() : '';
+      const password = row[2] ? row[2].toString() : '';
+      const schoolId = row[5] ? row[5].toString() : '';
+      
+      if (username === data.username && password === data.password && schoolId === data.schoolId) {
+        const user = {
+          id: row[0] ? row[0].toString() : '',
+          username: row[1] ? row[1].toString() : '',
+          name: row[3] ? row[3].toString() : '',
+          role: row[4] ? row[4].toString() : '',
+          nip: row[6] ? row[6].toString() : '',
+          mapel: row[7] ? row[7].toString() : '',
+          kelas: row[8] ? row[8].toString().split('|').map(k => k.trim()).filter(k => k) : [],
+          anak: row[9] ? row[9].toString() : '',
+          kelasOrtu: row[10] ? row[10].toString() : ''
+        };
+        
+        logAction('login_success', user.id, data.schoolId, 'User: ' + user.name, 'success');
+        return sendResponse(true, 'Login berhasil', { user: user });
+      }
+    }
+    
+    logAction('login_failed', 'unknown', data.schoolId, 'Username: ' + data.username, 'failed');
+    return sendResponse(false, 'Username atau password salah', {});
+    
+  } catch (error) {
+    logAction('login_error', 'unknown', data.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, {});
+  }
+}
+
+// ===== SCHOOLS =====
+function getSchools() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sekolahSheet = ss.getSheetByName(SHEETS.SEKOLAH);
+    
+    if (!sekolahSheet || !sekolahSheet.getLastRow() || sekolahSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = sekolahSheet.getDataRange().getValues();
+    let schools = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      schools.push({
+        id: row[0] ? row[0].toString() : '',
+        name: row[1] ? row[1].toString() : '',
+        address: row[2] ? row[2].toString() : ''
+      });
+    }
+    
+    return sendResponse(true, 'Data retrieved', { data: schools });
+    
+  } catch (error) {
+    logAction('getSchools_error', 'unknown', 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+// ===== KELAS =====
+function getKelas(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const kelasSheet = ss.getSheetByName(SHEETS.KELAS);
+    
+    if (!kelasSheet || !kelasSheet.getLastRow() || kelasSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = kelasSheet.getDataRange().getValues();
+    let kelas = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const schoolId = row[1] ? row[1].toString() : '';
+      
+      if (schoolId === params.schoolId) {
+        kelas.push({
+          id: row[0] ? row[0].toString() : '',
+          name: row[2] ? row[2].toString() : ''
+        });
+      }
+    }
+    
+    return sendResponse(true, 'Data retrieved', { data: kelas });
+    
+  } catch (error) {
+    logAction('getKelas_error', 'unknown', params.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+// ===== JURNAL FUNCTIONS =====
+function saveJurnal(data) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const jurnalSheet = ss.getSheetByName(SHEETS.JURNAL);
+    
+    if (!jurnalSheet) {
+      return sendResponse(false, 'Jurnal sheet not found', {});
+    }
+    
+    const id = Utilities.getUuid();
+    jurnalSheet.appendRow([
+      id,
+      data.guruId || '',
+      data.guruNama || '',
+      data.schoolId || '',
+      data.tanggal || '',
+      data.kelas || '',
+      data.jamMulai || '',
+      data.jamSelesai || '',
+      data.mapel || '',
+      parseInt(data.hadir) || 0,
+      parseInt(data.sakit) || 0,
+      parseInt(data.izin) || 0,
+      parseInt(data.alpha) || 0,
+      data.tujuan || '',
+      data.metode || '',
+      data.catatan || '',
+      data.perbaikan || '',
+      data.dokumentasiNama || '',
+      data.dokumentasiUrl || '',
+      data.dokumentasiFileId || '',
+      data.timestamp || new Date().toISOString()
+    ]);
+    
+    logAction('saveJurnal', data.guruId, data.schoolId, 'Kelas: ' + data.kelas + ' | Tanggal: ' + data.tanggal, 'success');
+    return sendResponse(true, 'Jurnal berhasil disimpan', { id: id });
+    
+  } catch (error) {
+    logAction('saveJurnal_error', data.guruId || 'unknown', data.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, {});
+  }
+}
+
+function getJurnalGuru(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const jurnalSheet = ss.getSheetByName(SHEETS.JURNAL);
+    
+    if (!jurnalSheet || !jurnalSheet.getLastRow() || jurnalSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = jurnalSheet.getDataRange().getValues();
+    let jurnals = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const guruId = row[1] ? row[1].toString() : '';
+      
+      if (guruId === params.guruId) {
+        jurnals.push({
+          id: row[0] ? row[0].toString() : '',
+          tanggal: row[4] ? row[4].toString() : '',
+          kelas: row[5] ? row[5].toString() : '',
+          jamMulai: row[6] ? row[6].toString() : '',
+          jamSelesai: row[7] ? row[7].toString() : '',
+          mapel: row[8] ? row[8].toString() : '',
+          hadir: parseInt(row[9]) || 0,
+          sakit: parseInt(row[10]) || 0,
+          izin: parseInt(row[11]) || 0,
+          alpha: parseInt(row[12]) || 0,
+          tujuan: row[13] ? row[13].toString() : '',
+          metode: row[14] ? row[14].toString() : '',
+          catatan: row[15] ? row[15].toString() : '',
+          perbaikan: row[16] ? row[16].toString() : '',
+          dokumentasiNama: row[17] ? row[17].toString() : '',
+          dokumentasiUrl: row[18] ? row[18].toString() : '',
+          dokumentasiFileId: row[19] ? row[19].toString() : ''
+        });
+      }
+    }
+    
+    // Sort by tanggal descending
+    jurnals.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    return sendResponse(true, 'Data retrieved', { data: jurnals.slice(0, parseInt(params.limit) || 100) });
+    
+  } catch (error) {
+    logAction('getJurnalGuru_error', params.guruId || 'unknown', 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+function getAllJurnal(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const jurnalSheet = ss.getSheetByName(SHEETS.JURNAL);
+    
+    if (!jurnalSheet || !jurnalSheet.getLastRow() || jurnalSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = jurnalSheet.getDataRange().getValues();
+    let jurnals = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const schoolId = row[3] ? row[3].toString() : '';
+      
+      if (schoolId === params.schoolId) {
+        jurnals.push({
+          id: row[0] ? row[0].toString() : '',
+          guruNama: row[2] ? row[2].toString() : '',
+          tanggal: row[4] ? row[4].toString() : '',
+          kelas: row[5] ? row[5].toString() : '',
+          jamMulai: row[6] ? row[6].toString() : '',
+          jamSelesai: row[7] ? row[7].toString() : '',
+          mapel: row[8] ? row[8].toString() : '',
+          hadir: parseInt(row[9]) || 0,
+          sakit: parseInt(row[10]) || 0,
+          izin: parseInt(row[11]) || 0,
+          alpha: parseInt(row[12]) || 0,
+          tujuan: row[13] ? row[13].toString() : '',
+          metode: row[14] ? row[14].toString() : '',
+          catatan: row[15] ? row[15].toString() : '',
+          dokumentasiNama: row[17] ? row[17].toString() : '',
+          dokumentasiUrl: row[18] ? row[18].toString() : '',
+          dokumentasiFileId: row[19] ? row[19].toString() : ''
+        });
+      }
+    }
+    
+    // Sort by tanggal descending
+    jurnals.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    return sendResponse(true, 'Data retrieved', { data: jurnals });
+    
+  } catch (error) {
+    logAction('getAllJurnal_error', 'unknown', params.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+// ===== MASUKAN FUNCTIONS =====
+function saveMasukan(data) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const masukanSheet = ss.getSheetByName(SHEETS.MASUKAN);
+    
+    if (!masukanSheet) {
+      return sendResponse(false, 'Masukan sheet not found', {});
+    }
+    
+    const id = Utilities.getUuid();
+    masukanSheet.appendRow([
+      id,
+      data.ortuId || '',
+      data.ortuNama || '',
+      data.anakNama || '',
+      data.schoolId || '',
+      data.tanggal || '',
+      data.kelas || '',
+      data.positif || '',
+      data.perbaikan || '',
+      data.saran || '',
+      data.dokumentasiNama || '',
+      data.dokumentasiUrl || '',
+      data.dokumentasiFileId || '',
+      data.timestamp || new Date().toISOString()
+    ]);
+    
+    logAction('saveMasukan', data.ortuId, data.schoolId, 'Ortu: ' + data.ortuNama, 'success');
+    return sendResponse(true, 'Masukan berhasil disimpan', { id: id });
+    
+  } catch (error) {
+    logAction('saveMasukan_error', data.ortuId || 'unknown', data.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, {});
+  }
+}
+
+function getOrtuMasukan(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const masukanSheet = ss.getSheetByName(SHEETS.MASUKAN);
+    
+    if (!masukanSheet || !masukanSheet.getLastRow() || masukanSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = masukanSheet.getDataRange().getValues();
+    let masukans = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const ortuId = row[1] ? row[1].toString() : '';
+      
+      if (ortuId === params.ortuId) {
+        masukans.push({
+          id: row[0] ? row[0].toString() : '',
+          ortuNama: row[2] ? row[2].toString() : '',
+          anakNama: row[3] ? row[3].toString() : '',
+          tanggal: row[5] ? row[5].toString() : '',
+          kelas: row[6] ? row[6].toString() : '',
+          positif: row[7] ? row[7].toString() : '',
+          perbaikan: row[8] ? row[8].toString() : '',
+          saran: row[9] ? row[9].toString() : '',
+          dokumentasiNama: row[10] ? row[10].toString() : '',
+          dokumentasiUrl: row[11] ? row[11].toString() : '',
+          dokumentasiFileId: row[12] ? row[12].toString() : ''
+        });
+      }
+    }
+    
+    // Sort by tanggal descending
+    masukans.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    return sendResponse(true, 'Data retrieved', { data: masukans });
+    
+  } catch (error) {
+    logAction('getOrtuMasukan_error', params.ortuId || 'unknown', 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+function getAllMasukan(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const masukanSheet = ss.getSheetByName(SHEETS.MASUKAN);
+    
+    if (!masukanSheet || !masukanSheet.getLastRow() || masukanSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = masukanSheet.getDataRange().getValues();
+    let masukans = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const schoolId = row[4] ? row[4].toString() : '';
+      
+      if (schoolId === params.schoolId) {
+        masukans.push({
+          id: row[0] ? row[0].toString() : '',
+          ortuNama: row[2] ? row[2].toString() : '',
+          anakNama: row[3] ? row[3].toString() : '',
+          tanggal: row[5] ? row[5].toString() : '',
+          kelas: row[6] ? row[6].toString() : '',
+          positif: row[7] ? row[7].toString() : '',
+          perbaikan: row[8] ? row[8].toString() : '',
+          saran: row[9] ? row[9].toString() : '',
+          dokumentasiNama: row[10] ? row[10].toString() : '',
+          dokumentasiUrl: row[11] ? row[11].toString() : '',
+          dokumentasiFileId: row[12] ? row[12].toString() : ''
+        });
+      }
+    }
+    
+    // Sort by tanggal descending
+    masukans.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    return sendResponse(true, 'Data retrieved', { data: masukans });
+    
+  } catch (error) {
+    logAction('getAllMasukan_error', 'unknown', params.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+// ===== GET ALL USERS BY SCHOOL (untuk Kepala Sekolah) =====
+function getAllUsers(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const penggunaSheet = ss.getSheetByName(SHEETS.PENGGUNA);
+    
+    if (!penggunaSheet || !penggunaSheet.getLastRow() || penggunaSheet.getLastRow() <= 1) {
+      return sendResponse(true, 'No data', { data: [] });
+    }
+    
+    const dataRange = penggunaSheet.getDataRange().getValues();
+    let users = [];
+    
+    for (let i = 1; i < dataRange.length; i++) {
+      const row = dataRange[i];
+      const schoolId = row[5] ? row[5].toString() : '';
+      const role = row[4] ? row[4].toString() : '';
+      
+      // Filter by schoolId, dan jangan tampilkan kepala sekolah dalam daftar ini
+      if (schoolId === params.schoolId && role !== 'kepala_sekolah') {
+        users.push({
+          id: row[0] ? row[0].toString() : '',
+          name: row[3] ? row[3].toString() : '',
+          role: role,
+          nip: row[6] ? row[6].toString() : '',
+          mapel: row[7] ? row[7].toString() : '',
+          anak: row[9] ? row[9].toString() : '',
+          kelas: row[10] ? row[10].toString() : ''
+        });
+      }
+    }
+    
+    return sendResponse(true, 'Data retrieved', { data: users });
+    
+  } catch (error) {
+    logAction('getAllUsers_error', 'unknown', params.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, { data: [] });
+  }
+}
+
+// ===== STATISTICS - REAL TIME COUNTS =====
+function getKepsekStats(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    
+    // Count users by role
+    const penggunaSheet = ss.getSheetByName(SHEETS.PENGGUNA);
+    const penggunaData = penggunaSheet.getDataRange().getValues();
+    let guruCount = 0, ortuCount = 0;
+    
+    for (let i = 1; i < penggunaData.length; i++) {
+      const row = penggunaData[i];
+      const schoolId = row[5] ? row[5].toString() : '';
+      
+      if (schoolId === params.schoolId) {
+        const role = row[4] ? row[4].toString() : '';
+        if (role === 'guru') guruCount++;
+        if (role === 'orang_tua') ortuCount++;
+      }
+    }
+    
+    // Count jurnal
+    const jurnalSheet = ss.getSheetByName(SHEETS.JURNAL);
+    const jurnalData = jurnalSheet.getDataRange().getValues();
+    let jurnalCount = 0;
+    
+    for (let i = 1; i < jurnalData.length; i++) {
+      const row = jurnalData[i];
+      const schoolId = row[3] ? row[3].toString() : '';
+      
+      if (schoolId === params.schoolId) jurnalCount++;
+    }
+    
+    // Count masukan
+    const masukanSheet = ss.getSheetByName(SHEETS.MASUKAN);
+    const masukanData = masukanSheet.getDataRange().getValues();
+    let masukanCount = 0;
+    
+    for (let i = 1; i < masukanData.length; i++) {
+      const row = masukanData[i];
+      const schoolId = row[4] ? row[4].toString() : '';
+      
+      if (schoolId === params.schoolId) masukanCount++;
+    }
+    
+    return sendResponse(true, 'Stats retrieved', {
+      guruCount: guruCount,
+      ortuCount: ortuCount,
+      jurnalCount: jurnalCount,
+      masukanCount: masukanCount
+    });
+    
+  } catch (error) {
+    logAction('getKepsekStats_error', 'unknown', params.schoolId || 'unknown', error.message, 'error');
+    return sendResponse(false, error.message, {
+      guruCount: 0,
+      ortuCount: 0,
+      jurnalCount: 0,
+      masukanCount: 0
+    });
+  }
+}
+
+// ===== FILE UPLOAD - FIXED & FULLY INTEGRATED =====
+function uploadFile(data) {
+  try {
+    // Validasi input
+    if (!data.base64Data || !data.fileName) {
+      logAction('uploadFile_validation_failed', data.userId || 'unknown', data.schoolId || 'unknown', 'Missing required fields', 'error');
+      return sendResponse(false, 'File data incomplete. Nama file atau data file tidak ada.', {});
+    }
+    
+    // Decode base64
+    let decodedData;
+    try {
+      decodedData = Utilities.base64Decode(data.base64Data);
+    } catch (e) {
+      logAction('uploadFile_decode_error', data.userId || 'unknown', data.schoolId || 'unknown', 'Base64 decode failed: ' + e.message, 'error');
+      return sendResponse(false, 'File format tidak valid. Silakan upload ulang.', {});
+    }
+    
+    const mimeType = data.mimeType || 'application/octet-stream';
+    const folderId = data.folderId || DRIVE_FOLDER_ID;
+    
+    // Create folder if not exist
+    let folder;
+    try {
+      folder = DriveApp.getFolderById(folderId);
+    } catch (e) {
+      logAction('uploadFile_folder_error', data.userId || 'unknown', data.schoolId || 'unknown', 'Folder not found: ' + folderId, 'error');
+      return sendResponse(false, 'Folder penyimpanan tidak ditemukan. Hubungi admin.', {});
+    }
+    
+    // Create subfolder by type (jurnal/masukan)
+    const subFolderName = data.tipeUpload === 'masukan' ? 'Masukan Orang Tua' : 'Dokumentasi Jurnal';
+    let subFolder;
+    
+    try {
+      const existingFolders = folder.getFoldersByName(subFolderName);
+      if (existingFolders.hasNext()) {
+        subFolder = existingFolders.next();
+      } else {
+        subFolder = folder.createFolder(subFolderName);
+      }
+    } catch (e) {
+      // If error, just use main folder
+      subFolder = folder;
+    }
+    
+    // Create blob and upload to Google Drive
+    const blobData = Utilities.newBlob(decodedData, mimeType, data.fileName);
+    let file;
+    
+    try {
+      file = subFolder.createFile(blobData);
+    } catch (e) {
+      logAction('uploadFile_create_error', data.userId || 'unknown', data.schoolId || 'unknown', 'Create file failed: ' + e.message, 'error');
+      return sendResponse(false, 'Gagal upload file ke Drive. Error: ' + e.message, {});
+    }
+    
+    // Set sharing - anyone can view
+    try {
+      file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+    } catch (e) {
+      Logger.log('Warning: Could not set sharing: ' + e.message);
+    }
+    
+    // Get file info
+    const fileId = file.getId();
+    const fileUrl = 'https://drive.google.com/file/d/' + fileId + '/view';
+    const fileSize = file.getSize();
+    
+    // Track upload ke spreadsheet
+    try {
+      trackUploadToSheet({
+        fileId: fileId,
+        fileName: data.fileName,
+        mimeType: mimeType,
+        fileSize: fileSize,
+        uploadedBy: data.guruNama || data.ortuNama || 'Unknown',
+        userId: data.userId || 'unknown',
+        userRole: data.userRole || 'unknown',
+        schoolId: data.schoolId || 'unknown',
+        tipeUpload: data.tipeUpload || 'jurnal',
+        referenceId: data.referenceId || '',
+        fileUrl: fileUrl,
+        timestamp: new Date().toISOString()
+      });
+    } catch (e) {
+      Logger.log('Warning: Could not track upload: ' + e.message);
+    }
+    
+    logAction('uploadFile_success', data.userId || 'unknown', data.schoolId || 'unknown', 'File: ' + data.fileName + ' | Size: ' + fileSize, 'success');
+    
+    return sendResponse(true, 'File uploaded successfully', {
+      data: {
+        fileId: fileId,
+        fileName: data.fileName,
+        fileUrl: fileUrl,
+        mimeType: mimeType,
+        size: fileSize
+      }
+    });
+    
+  } catch (error) {
+    Logger.log('Unexpected upload error: ' + error.message + '\nStack: ' + error.stack);
+    logAction('uploadFile_unexpected_error', data.userId || 'unknown', data.schoolId || 'unknown', 'Unexpected: ' + error.message, 'error');
+    return sendResponse(false, 'Unexpected server error. Silakan coba lagi.', {});
+  }
+}
+
+// Track file upload ke sheet Upload
+function trackUploadToSheet(uploadData) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const uploadSheet = ss.getSheetByName(SHEETS.UPLOAD);
+    
+    if (!uploadSheet) {
+      Logger.log('Upload sheet not found');
+      return;
+    }
+    
+    uploadSheet.appendRow([
+      uploadData.fileId,
+      uploadData.fileName,
+      uploadData.mimeType,
+      uploadData.fileSize,
+      uploadData.uploadedBy,
+      uploadData.userId,
+      uploadData.userRole,
+      uploadData.schoolId,
+      uploadData.tipeUpload,
+      uploadData.referenceId,
+      uploadData.fileUrl,
+      uploadData.timestamp,
+      'success'
+    ]);
+    
+    Logger.log('Upload tracked: ' + uploadData.fileName);
+  } catch (error) {
+    Logger.log('Track upload error: ' + error.message);
+  }
+}
+
+// ===== HELPER FUNCTIONS =====
+function sendResponse(success, message, additionalData = {}) {
+  const response = {
+    success: success,
+    message: message,
+    ...additionalData
+  };
+  
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function formatHeaderRow(sheet, columnCount) {
+  try {
+    const headerRange = sheet.getRange(1, 1, 1, columnCount);
+    headerRange.setBackground('#1e3a5f');
+    headerRange.setFontColor('#ffffff');
+    headerRange.setFontWeight('bold');
+    sheet.autoResizeColumns(1, columnCount);
+  } catch (e) {
+    Logger.log('Format header error: ' + e.message);
+  }
+}
+
+function logAction(action, userId, schoolId, details, status) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const logsSheet = ss.getSheetByName(SHEETS.LOGS);
+    
+    if (logsSheet) {
+      logsSheet.appendRow([
+        new Date().toISOString(),
+        action,
+        userId,
+        schoolId,
+        details,
+        status
+      ]);
+    }
+  } catch (error) {
+    Logger.log('Log error: ' + error.message);
+  }
+}
