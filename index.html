@@ -288,7 +288,11 @@
         
         if (result.success && result.user) {
           currentUser = result.user;
-          currentUser.schoolName = schoolsData.find(s => s.id === schoolId)?.name || '';
+          // Pastikan schoolId selalu terisi — ambil dari dropdown jika backend tidak mengembalikannya
+          if (!currentUser.schoolId) {
+            currentUser.schoolId = schoolId;
+          }
+          currentUser.schoolName = schoolsData.find(s => s.id === currentUser.schoolId)?.name || schoolsData.find(s => s.id === schoolId)?.name || '';
           
           // Save to Data SDK
           if (window.dataSdk) {
