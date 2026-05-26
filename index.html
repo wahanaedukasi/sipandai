@@ -215,8 +215,29 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Help Links -->
+              <div class="mt-6 pt-5 border-t border-gray-100 space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                  <a href="https://wa.me/082340039057" target="_blank" rel="noopener noreferrer"
+                     class="flex items-center gap-2 text-green-600 hover:text-green-700 font-medium transition-colors">
+                    <i data-lucide="lock-keyhole" class="w-4 h-4"></i>
+                    Lupa Password?
+                  </a>
+                  <a href="https://wa.me/082340039057" target="_blank" rel="noopener noreferrer"
+                     class="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    Butuh Bantuan?
+                  </a>
+                </div>
+                <a href="https://drive.google.com/file/d/106KJC2dBhc5ThpFGdqikSjg1Qfqbj-hc/view?usp=drive_link" target="_blank" rel="noopener noreferrer"
+                   class="flex items-center justify-center gap-2 w-full text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors py-2 border border-purple-200 rounded-xl hover:bg-purple-50">
+                  <i data-lucide="book-open" class="w-4 h-4"></i>
+                  Butuh Panduan Penggunaan Aplikasi?
+                </a>
+              </div>
             </div>
-            <p class="text-center text-white/60 text-sm mt-6">© 2026 SIPANDAI. All rights reserved.</p>
+            <p class="text-center text-white/60 text-sm mt-6">© 2024 SIPANDAI. All rights reserved.</p>
           </div>
         </div>
       `;
@@ -871,16 +892,23 @@
       }
 
       try {
-        const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { 
-          guruId: currentUser.id
-        }));
-
+        // Gunakan journalData yang sudah ada jika cocok dengan guru ini
         let data = [];
-        if (result.success && result.data) {
-          data = result.data.filter(j => j.tanggal === tanggal);
+
+        // Cek apakah journalData sudah berisi data guru ini
+        const cachedData = (journalData || []).filter(j => j.guruId === currentUser.id);
+        if (cachedData.length > 0) {
+          data = cachedData.filter(j => j.tanggal === tanggal);
+        } else {
+          // Fetch fresh dari server
+          const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
+          if (result.success && result.data && result.data.length > 0) {
+            journalData = result.data;
+            data = result.data.filter(j => j.tanggal === tanggal);
+          }
         }
 
-        // Fallback to local data if no result
+        // Fallback ke localData jika masih kosong
         if (data.length === 0) {
           const localJurnals = localData.filter(d => d.type === 'jurnal');
           if (localJurnals.length > 0) {
@@ -889,7 +917,7 @@
           }
         }
 
-        // Fetch Kepala Sekolah data
+        // Fetch data Kepala Sekolah
         const kepsek = await getKepalaSekolah();
 
         const printWindow = window.open('', '_blank');
@@ -897,12 +925,13 @@
           printWindow.document.write(generatePrintHTML(data, 'harian', tanggal, kepsek));
           printWindow.document.close();
           printWindow.focus();
+          setTimeout(() => printWindow.print(), 800);
         } else {
-          showMessage('print-message', 'Popup blocked. Mohon izinkan popup di browser.', 'error');
+          alert('Popup diblokir. Mohon izinkan popup di browser Anda.');
         }
       } catch (e) {
         console.error('Print error:', e);
-        showMessage('print-message', 'Gagal membuka jurnal. Silakan coba lagi.', 'error');
+        alert('Gagal membuka jurnal. Silakan coba lagi.');
       }
     }
 
@@ -914,25 +943,30 @@
       }
 
       try {
-        const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { 
-          guruId: currentUser.id
-        }));
-
         let data = [];
-        if (result.success && result.data) {
-          data = result.data.filter(j => j.tanggal.startsWith(bulan));
+
+        // Gunakan journalData yang sudah ada jika cocok dengan guru ini
+        const cachedData = (journalData || []).filter(j => j.guruId === currentUser.id);
+        if (cachedData.length > 0) {
+          data = cachedData.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
+        } else {
+          const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
+          if (result.success && result.data && result.data.length > 0) {
+            journalData = result.data;
+            data = result.data.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
+          }
         }
 
-        // Fallback to local data if no result
+        // Fallback ke localData jika masih kosong
         if (data.length === 0) {
           const localJurnals = localData.filter(d => d.type === 'jurnal');
           if (localJurnals.length > 0) {
             const parsed = localJurnals.map(j => JSON.parse(j.data)).filter(j => j.guruId === currentUser.id);
-            data = parsed.filter(j => j.tanggal.startsWith(bulan));
+            data = parsed.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
           }
         }
 
-        // Fetch Kepala Sekolah data
+        // Fetch data Kepala Sekolah
         const kepsek = await getKepalaSekolah();
 
         const printWindow = window.open('', '_blank');
@@ -940,12 +974,13 @@
           printWindow.document.write(generatePrintHTML(data, 'bulanan', bulan, kepsek));
           printWindow.document.close();
           printWindow.focus();
+          setTimeout(() => printWindow.print(), 800);
         } else {
-          showMessage('print-message', 'Popup blocked. Mohon izinkan popup di browser.', 'error');
+          alert('Popup diblokir. Mohon izinkan popup di browser Anda.');
         }
       } catch (e) {
         console.error('Print error:', e);
-        showMessage('print-message', 'Gagal membuka jurnal. Silakan coba lagi.', 'error');
+        alert('Gagal membuka jurnal. Silakan coba lagi.');
       }
     }
 
@@ -973,18 +1008,14 @@
 
     async function getKepalaSekolah() {
       try {
-        const result = await retryFetch(() => fetchFromSheet('getAllUsers', { schoolId: currentUser.schoolId }));
-        
+        // Gunakan endpoint getKepsekInfo yang khusus mengembalikan data kepala sekolah
+        const result = await retryFetch(() => fetchFromSheet('getKepsekInfo', { schoolId: currentUser.schoolId }));
         if (result.success && result.data) {
-          const kepsek = result.data.find(u => u.role === 'kepala_sekolah');
-          if (kepsek) {
-            return { name: kepsek.name || 'Kepala Sekolah', nip: kepsek.nip || '' };
-          }
+          return { name: result.data.name || 'Kepala Sekolah', nip: result.data.nip || '' };
         }
       } catch (e) {
         console.error('Error fetching kepala sekolah:', e);
       }
-      
       return { name: 'Kepala Sekolah', nip: '' };
     }
 
@@ -992,7 +1023,8 @@
       const periodLabel = type === 'harian' ? formatDate(period) : formatMonth(period);
       const kepsekName = kepsek?.name || 'Kepala Sekolah';
       const kepsekNip = kepsek?.nip || '';
-      
+      const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
       return `
         <!DOCTYPE html>
         <html>
@@ -1000,26 +1032,35 @@
           <title>Jurnal Mengajar - ${periodLabel}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif; }
-            body { padding: 20mm; width: 210mm; }
+            body { padding: 20mm; width: 210mm; min-height: 297mm; }
             .header { text-align: center; margin-bottom: 20px; border-bottom: 3px double #000; padding-bottom: 15px; }
             .header-top { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px; }
             .header-logo { width: 60px; height: 60px; }
             .header-logo img { width: 100%; height: 100%; object-fit: contain; }
             .header-text { text-align: center; }
-            .header h1 { font-size: 18px; margin: 5px 0; font-weight: bold; }
-            .header h2 { font-size: 14px; font-weight: normal; margin: 3px 0; }
-            .header h3 { font-size: 12px; font-weight: normal; margin: 2px 0; }
-            .info { margin-bottom: 20px; }
-            .info p { margin: 5px 0; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-            th { background: #f0f0f0; font-weight: bold; }
-            .footer { margin-top: 40px; display: flex; justify-content: space-between; }
-            .signature-block { display: inline-block; width: 48%; }
-            .signature-line { border-top: 1px solid #000; margin-top: 50px; }
-            .sig-label { margin-bottom: 5px; font-size: 12px; }
-            .sig-name { margin-top: 40px; font-size: 12px; font-weight: bold; }
-            @media print { body { padding: 15mm; } }
+            .header h1 { font-size: 16px; margin: 5px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+            .header h2 { font-size: 13px; font-weight: bold; margin: 3px 0; }
+            .header h3 { font-size: 11px; font-weight: normal; margin: 2px 0; }
+            .info { margin-bottom: 16px; border: 1px solid #ccc; padding: 10px 14px; border-radius: 4px; }
+            .info p { margin: 4px 0; font-size: 12px; }
+            .info p strong { display: inline-block; width: 130px; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
+            th, td { border: 1px solid #000; padding: 6px 5px; text-align: left; vertical-align: top; }
+            th { background: #e8e8e8; font-weight: bold; text-align: center; }
+            td.center { text-align: center; }
+            .no-data { text-align: center; padding: 20px; font-style: italic; color: #555; }
+            .footer { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-start; }
+            .sig-block { width: 46%; }
+            .sig-block.left { text-align: left; }
+            .sig-block.right { text-align: right; }
+            .sig-title { font-size: 12px; margin-bottom: 4px; }
+            .sig-space { height: 60px; }
+            .sig-name { font-size: 12px; font-weight: bold; border-top: 1px solid #000; padding-top: 4px; display: inline-block; min-width: 160px; }
+            .sig-nip { font-size: 11px; margin-top: 4px; }
+            @media print {
+              body { padding: 15mm; }
+              @page { size: A4; margin: 15mm; }
+            }
           </style>
         </head>
         <body>
@@ -1029,69 +1070,71 @@
                 <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Lambang_Kota_Mataram.png" alt="Logo">
               </div>
               <div class="header-text">
-                <h1>JURNAL KEGIATAN MENGAJAR</h1>
+                <h1>Jurnal Kegiatan Mengajar</h1>
                 <h2>${currentUser.schoolName}</h2>
-                <h3>Alamat: Jl. Pendidikan No. 1, Jakarta</h3>
+                <h3>Kota Mataram</h3>
               </div>
             </div>
           </div>
+
           <div class="info">
-            <p><strong>Nama Guru:</strong> ${currentUser.name}</p>
-            <p><strong>NIP:</strong> ${currentUser.nip || '-'}</p>
-            <p><strong>Mata Pelajaran:</strong> ${currentUser.mapel || '-'}</p>
-            <p><strong>Periode:</strong> ${periodLabel}</p>
+            <p><strong>Nama Guru</strong>: ${currentUser.name}</p>
+            <p><strong>NIP</strong>: ${currentUser.nip || '-'}</p>
+            <p><strong>Mata Pelajaran</strong>: ${currentUser.mapel || '-'}</p>
+            <p><strong>Periode</strong>: ${periodLabel}</p>
           </div>
+
           <table>
             <thead>
               <tr>
-                <th style="width:30px">No</th>
-                <th>Tanggal</th>
-                <th>Kelas</th>
-                <th>Jam</th>
-                <th>H</th>
-                <th>S</th>
-                <th>I</th>
-                <th>A</th>
+                <th style="width:28px">No</th>
+                <th style="width:70px">Tanggal</th>
+                <th style="width:48px">Kelas</th>
+                <th style="width:60px">Jam</th>
+                <th style="width:20px">H</th>
+                <th style="width:20px">S</th>
+                <th style="width:20px">I</th>
+                <th style="width:20px">A</th>
                 <th>Tujuan Pembelajaran</th>
-                <th>Metode</th>
-                <th>Catatan</th>
-                <th>Dokumentasi</th>
+                <th style="width:80px">Metode</th>
+                <th style="width:80px">Catatan</th>
               </tr>
             </thead>
             <tbody>
               ${data.length > 0 ? data.map((j, i) => `
                 <tr>
-                  <td>${i + 1}</td>
-                  <td>${formatDate(j.tanggal)}</td>
-                  <td>${j.kelas || '-'}</td>
-                  <td>${j.jamMulai || '-'} - ${j.jamSelesai || '-'}</td>
-                  <td>${j.hadir || 0}</td>
-                  <td>${j.sakit || 0}</td>
-                  <td>${j.izin || 0}</td>
-                  <td>${j.alpha || 0}</td>
+                  <td class="center">${i + 1}</td>
+                  <td class="center">${formatDate(j.tanggal)}</td>
+                  <td class="center">${j.kelas || '-'}</td>
+                  <td class="center">${j.jamMulai || '-'}&ndash;${j.jamSelesai || '-'}</td>
+                  <td class="center">${j.hadir ?? 0}</td>
+                  <td class="center">${j.sakit ?? 0}</td>
+                  <td class="center">${j.izin ?? 0}</td>
+                  <td class="center">${j.alpha ?? 0}</td>
                   <td>${j.tujuan || '-'}</td>
                   <td>${j.metode || '-'}</td>
                   <td>${j.catatan || '-'}</td>
-                  <td>${j.dokumentasiUrl ? '<a href="' + j.dokumentasiUrl + '" target="_blank" rel="noopener noreferrer">✓ ' + (j.dokumentasiNama || 'Lihat') + '</a>' : '-'}</td>
                 </tr>
-              `).join('') : '<tr><td colspan="12" style="text-align:center">Tidak ada data</td></tr>'}
+              `).join('') : `<tr><td colspan="11" class="no-data">Tidak ada data jurnal untuk periode ${periodLabel}</td></tr>`}
             </tbody>
           </table>
 
           <div class="footer">
-            <div class="signature-block">
-              <div class="sig-label">Mengetahui,</div>
-              <div class="sig-label">Kepala Sekolah</div>
-              <div class="signature-line"></div>
-              <div class="sig-name">${kepsekName}</div>
-              <div class="sig-label" style="margin-top: 10px;">NIP. ${kepsekNip}</div>
+            <!-- Kiri: Kepala Sekolah -->
+            <div class="sig-block left">
+              <p class="sig-title">Mengetahui,</p>
+              <p class="sig-title">Kepala Sekolah</p>
+              <div class="sig-space"></div>
+              <span class="sig-name">${kepsekName}</span>
+              <p class="sig-nip">NIP. ${kepsekNip || '-'}</p>
             </div>
-            <div class="signature-block" style="text-align: right;">
-              <div class="sig-label">${currentUser.schoolName}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-              <div class="sig-label" style="margin-top: 20px;">Guru Mata Pelajaran</div>
-              <div class="signature-line"></div>
-              <div class="sig-name">${currentUser.name}</div>
-              <div class="sig-label" style="margin-top: 10px;">NIP. ${currentUser.nip || '_________________'}</div>
+            <!-- Kanan: Guru -->
+            <div class="sig-block right">
+              <p class="sig-title">${currentUser.schoolName}, ${today}</p>
+              <p class="sig-title">Guru Mata Pelajaran</p>
+              <div class="sig-space"></div>
+              <span class="sig-name">${currentUser.name}</span>
+              <p class="sig-nip">NIP. ${currentUser.nip || '-'}</p>
             </div>
           </div>
         </body>
@@ -1593,16 +1636,40 @@
 
     function cetakRekapJurnal() {
       try {
-        // Gunakan journalData yang sudah difilter per sekolah, bukan getDemoJurnalData
-        const data = (journalData && journalData.length > 0 && journalData[0].guruNama !== undefined)
-          ? journalData.filter(j => j.schoolId ? j.schoolId === currentUser.schoolId : true)
-          : [];
-        
-        // Get kepala sekolah name from currentUser
-        const kepsekName = currentUser.name;
-        const kepsekNip = currentUser.nip;
-        
+        // Ambil nilai filter yang sedang aktif
+        const tanggal = document.getElementById('filter-tanggal')?.value || '';
+        const kelas = document.getElementById('filter-kelas')?.value || '';
+        const guru = document.getElementById('filter-guru')?.value.toLowerCase() || '';
+
+        // Mulai dari journalData yang sudah difilter per sekolah
+        let data = (journalData || []).filter(j => j.schoolId ? j.schoolId === currentUser.schoolId : true);
+
+        // Terapkan filter yang aktif
+        if (tanggal) {
+          data = data.filter(j => j.tanggal === tanggal);
+        }
+        if (kelas) {
+          data = data.filter(j => j.kelas === kelas);
+        }
+        if (guru) {
+          data = data.filter(j => (j.guruNama || '').toLowerCase().includes(guru));
+        }
+
+        const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        // Filter label untuk judul cetak
+        const filterLabel = [
+          tanggal ? `Tanggal: ${formatDate(tanggal)}` : '',
+          kelas ? `Kelas: ${kelas}` : '',
+          guru ? `Guru: ${guru}` : ''
+        ].filter(Boolean).join(' | ') || 'Semua Data';
+
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          alert('Popup diblokir. Mohon izinkan popup di browser Anda.');
+          return;
+        }
+
         printWindow.document.write(`
           <!DOCTYPE html>
           <html>
@@ -1610,20 +1677,28 @@
             <title>Rekap Jurnal - ${currentUser.schoolName}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif; }
-              body { padding: 20mm; width: 210mm; }
+              body { padding: 20mm; width: 210mm; min-height: 297mm; }
               .header { text-align: center; margin-bottom: 20px; border-bottom: 3px double #000; padding-bottom: 15px; }
               .header-top { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px; }
               .header-logo { width: 60px; height: 60px; }
               .header-logo img { width: 100%; height: 100%; object-fit: contain; }
-              .header-text { text-align: center; }
-              .header h1 { font-size: 18px; margin: 5px 0; font-weight: bold; }
-              .header h2 { font-size: 14px; font-weight: normal; margin: 3px 0; }
-              .header h3 { font-size: 12px; font-weight: normal; margin: 2px 0; }
-              table { width: 100%; border-collapse: collapse; font-size: 10px; }
-              th, td { border: 1px solid #000; padding: 6px; text-align: left; }
-              th { background: #f0f0f0; font-weight: bold; }
-              .footer { margin-top: 30px; text-align: right; }
-              @media print { body { padding: 15mm; } }
+              .header h1 { font-size: 16px; margin: 5px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+              .header h2 { font-size: 13px; font-weight: bold; margin: 3px 0; }
+              .header h3 { font-size: 11px; font-weight: normal; margin: 2px 0; }
+              .filter-info { font-size: 11px; margin-bottom: 14px; color: #333; background: #f5f5f5; padding: 6px 10px; border-left: 3px solid #333; }
+              table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 4px; }
+              th, td { border: 1px solid #000; padding: 5px 6px; text-align: left; vertical-align: top; }
+              th { background: #e8e8e8; font-weight: bold; text-align: center; }
+              td.center { text-align: center; }
+              .no-data { text-align: center; padding: 20px; font-style: italic; color: #555; }
+              .footer { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-start; }
+              .sig-block { width: 46%; }
+              .sig-block.right { text-align: right; }
+              .sig-title { font-size: 12px; margin-bottom: 4px; }
+              .sig-space { height: 60px; }
+              .sig-name { font-size: 12px; font-weight: bold; border-top: 1px solid #000; padding-top: 4px; display: inline-block; min-width: 160px; }
+              .sig-nip { font-size: 11px; margin-top: 4px; }
+              @media print { body { padding: 15mm; } @page { size: A4; margin: 15mm; } }
             </style>
           </head>
           <body>
@@ -1632,57 +1707,75 @@
                 <div class="header-logo">
                   <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Lambang_Kota_Mataram.png" alt="Logo">
                 </div>
-                <div class="header-text">
-                  <h1>REKAP JURNAL MENGAJAR</h1>
+                <div>
+                  <h1>Rekap Jurnal Mengajar</h1>
                   <h2>${currentUser.schoolName}</h2>
-                  <h3>Alamat: Jl. Pendidikan No. 1, Jakarta</h3>
+                  <h3>Kota Mataram</h3>
                 </div>
               </div>
             </div>
+            <div class="filter-info">Filter: ${filterLabel} &nbsp;|&nbsp; Dicetak: ${today} &nbsp;|&nbsp; Total: ${data.length} entri</div>
             <table>
               <thead>
                 <tr>
-                  <th>No</th>
-                  <th>Tanggal</th>
-                  <th>Guru</th>
-                  <th>Kelas</th>
-                  <th>Mapel</th>
-                  <th>H</th>
-                  <th>S</th>
-                  <th>I</th>
-                  <th>A</th>
+                  <th style="width:28px">No</th>
+                  <th style="width:70px">Tanggal</th>
+                  <th>Nama Guru</th>
+                  <th style="width:45px">Kelas</th>
+                  <th>Mata Pelajaran</th>
+                  <th style="width:60px">Jam</th>
+                  <th style="width:20px">H</th>
+                  <th style="width:20px">S</th>
+                  <th style="width:20px">I</th>
+                  <th style="width:20px">A</th>
                   <th>Metode</th>
                 </tr>
               </thead>
               <tbody>
-                ${data.map((j, i) => `
+                ${data.length > 0 ? data.map((j, i) => `
                   <tr>
-                    <td>${i + 1}</td>
-                    <td>${formatDate(j.tanggal)}</td>
+                    <td class="center">${i + 1}</td>
+                    <td class="center">${formatDate(j.tanggal)}</td>
                     <td>${j.guruNama || '-'}</td>
-                    <td>${j.kelas || '-'}</td>
+                    <td class="center">${j.kelas || '-'}</td>
                     <td>${j.mapel || '-'}</td>
-                    <td>${j.hadir || 0}</td>
-                    <td>${j.sakit || 0}</td>
-                    <td>${j.izin || 0}</td>
-                    <td>${j.alpha || 0}</td>
+                    <td class="center">${j.jamMulai || '-'}&ndash;${j.jamSelesai || '-'}</td>
+                    <td class="center">${j.hadir ?? 0}</td>
+                    <td class="center">${j.sakit ?? 0}</td>
+                    <td class="center">${j.izin ?? 0}</td>
+                    <td class="center">${j.alpha ?? 0}</td>
                     <td>${j.metode || '-'}</td>
                   </tr>
-                `).join('')}
+                `).join('') : `<tr><td colspan="11" class="no-data">Tidak ada data jurnal sesuai filter yang dipilih</td></tr>`}
               </tbody>
             </table>
+
             <div class="footer">
-              <p>${currentUser.schoolName}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p>Kepala Sekolah</p>
-              <p style="margin-top: 60px">${kepsekName}</p>
-              <p>NIP. ${kepsekNip || '-'}</p>
+              <!-- Kiri: Kepala Sekolah -->
+              <div class="sig-block left">
+                <p class="sig-title">Mengetahui,</p>
+                <p class="sig-title">Kepala Sekolah</p>
+                <div class="sig-space"></div>
+                <span class="sig-name">${currentUser.name}</span>
+                <p class="sig-nip">NIP. ${currentUser.nip || '-'}</p>
+              </div>
+              <!-- Kanan: Koordinator/Wakil -->
+              <div class="sig-block right">
+                <p class="sig-title">${currentUser.schoolName}, ${today}</p>
+                <p class="sig-title">Operator/Petugas</p>
+                <div class="sig-space"></div>
+                <span class="sig-name">&nbsp;</span>
+                <p class="sig-nip">NIP. -</p>
+              </div>
             </div>
           </body>
           </html>
         `);
         printWindow.document.close();
+        setTimeout(() => printWindow.print(), 800);
       } catch (e) {
         console.error('Print error:', e);
+        alert('Gagal mencetak. Silakan coba lagi.');
       }
     }
 
@@ -2011,7 +2104,7 @@
             </div>
 
             <!-- Kirim Masukan -->
-            <button onclick="showMasukanForm()" class="bg-gradient-to-br from-teal-500 to-teal-700 text-white rounded-2xl p-4 text-center hover:shadow-lg transition-all card-shadow flex flex-col items-center justify-center">
+            <button onclick="showMasukanForm()" class="bg-gradient-to-br from-teal-500 to-teal-700 text-white rounded-2xl p-4 text-center hover:shadow-lg transition-all card-shadow flex flex-col items-center justify-center md:col-span-1">
               <div class="w-10 h-10 mb-2 bg-white/20 rounded-xl flex items-center justify-center">
                 <i data-lucide="message-square-plus" class="w-5 h-5"></i>
               </div>
@@ -2020,21 +2113,12 @@
             </button>
 
             <!-- Rekap Masukan -->
-            <button onclick="showRekapMasukan()" class="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-4 text-center hover:shadow-lg transition-all card-shadow flex flex-col items-center justify-center">
+            <button onclick="showRekapMasukan()" class="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-4 text-center hover:shadow-lg transition-all card-shadow flex flex-col items-center justify-center md:col-span-1">
               <div class="w-10 h-10 mb-2 bg-white/20 rounded-xl flex items-center justify-center">
                 <i data-lucide="history" class="w-5 h-5"></i>
               </div>
               <h3 class="font-semibold text-sm">Rekap Saran</h3>
               <p class="text-xs text-white/70 mt-1">& Masukan</p>
-            </button>
-
-            <!-- Cetak Masukan -->
-            <button onclick="cetakMasukanOrtu()" class="bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl p-4 text-center hover:shadow-lg transition-all card-shadow flex flex-col items-center justify-center">
-              <div class="w-10 h-10 mb-2 bg-white/20 rounded-xl flex items-center justify-center">
-                <i data-lucide="printer" class="w-5 h-5"></i>
-              </div>
-              <h3 class="font-semibold text-sm">Cetak</h3>
-              <p class="text-xs text-white/70 mt-1">Saran & Masukan</p>
             </button>
           </div>
 
