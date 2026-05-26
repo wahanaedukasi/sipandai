@@ -886,38 +886,27 @@
 
     async function cetakJurnalHarian() {
       const tanggal = document.getElementById('cetak-tanggal').value;
-      if (!tanggal) {
-        alert('Pilih tanggal terlebih dahulu');
-        return;
-      }
+      if (!tanggal) { alert('Pilih tanggal terlebih dahulu'); return; }
 
       try {
-        // Gunakan journalData yang sudah ada jika cocok dengan guru ini
-        let data = [];
+        let allData = [];
 
-        // Cek apakah journalData sudah berisi data guru ini
-        const cachedData = (journalData || []).filter(j => j.guruId === currentUser.id);
-        if (cachedData.length > 0) {
-          data = cachedData.filter(j => j.tanggal === tanggal);
+        // Selalu fetch fresh dari API agar data terbaru
+        const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
+        if (result.success && result.data && result.data.length > 0) {
+          allData = result.data;
+          journalData = result.data; // update cache
         } else {
-          // Fetch fresh dari server
-          const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
-          if (result.success && result.data && result.data.length > 0) {
-            journalData = result.data;
-            data = result.data.filter(j => j.tanggal === tanggal);
+          // Fallback ke journalData cache jika API gagal
+          allData = (journalData || []).filter(j => j.guruId === currentUser.id);
+          // Fallback ke localData
+          if (allData.length === 0) {
+            const local = localData.filter(d => d.type === 'jurnal');
+            allData = local.map(j => JSON.parse(j.data)).filter(j => j.guruId === currentUser.id);
           }
         }
 
-        // Fallback ke localData jika masih kosong
-        if (data.length === 0) {
-          const localJurnals = localData.filter(d => d.type === 'jurnal');
-          if (localJurnals.length > 0) {
-            const parsed = localJurnals.map(j => JSON.parse(j.data)).filter(j => j.guruId === currentUser.id);
-            data = parsed.filter(j => j.tanggal === tanggal);
-          }
-        }
-
-        // Fetch data Kepala Sekolah
+        const data = allData.filter(j => j.tanggal === tanggal);
         const kepsek = await getKepalaSekolah();
 
         const printWindow = window.open('', '_blank');
@@ -937,36 +926,25 @@
 
     async function cetakJurnalBulanan() {
       const bulan = document.getElementById('cetak-bulan').value;
-      if (!bulan) {
-        alert('Pilih bulan terlebih dahulu');
-        return;
-      }
+      if (!bulan) { alert('Pilih bulan terlebih dahulu'); return; }
 
       try {
-        let data = [];
+        let allData = [];
 
-        // Gunakan journalData yang sudah ada jika cocok dengan guru ini
-        const cachedData = (journalData || []).filter(j => j.guruId === currentUser.id);
-        if (cachedData.length > 0) {
-          data = cachedData.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
+        // Selalu fetch fresh dari API agar data terbaru
+        const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
+        if (result.success && result.data && result.data.length > 0) {
+          allData = result.data;
+          journalData = result.data;
         } else {
-          const result = await retryFetch(() => fetchFromSheet('getJurnalGuru', { guruId: currentUser.id }));
-          if (result.success && result.data && result.data.length > 0) {
-            journalData = result.data;
-            data = result.data.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
+          allData = (journalData || []).filter(j => j.guruId === currentUser.id);
+          if (allData.length === 0) {
+            const local = localData.filter(d => d.type === 'jurnal');
+            allData = local.map(j => JSON.parse(j.data)).filter(j => j.guruId === currentUser.id);
           }
         }
 
-        // Fallback ke localData jika masih kosong
-        if (data.length === 0) {
-          const localJurnals = localData.filter(d => d.type === 'jurnal');
-          if (localJurnals.length > 0) {
-            const parsed = localJurnals.map(j => JSON.parse(j.data)).filter(j => j.guruId === currentUser.id);
-            data = parsed.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
-          }
-        }
-
-        // Fetch data Kepala Sekolah
+        const data = allData.filter(j => j.tanggal && j.tanggal.startsWith(bulan));
         const kepsek = await getKepalaSekolah();
 
         const printWindow = window.open('', '_blank');
@@ -1131,7 +1109,7 @@
             <!-- Kanan: Guru -->
             <div class="sig-block right">
               <p class="sig-title">${currentUser.schoolName}, ${today}</p>
-              <p class="sig-title">Guru Mata Pelajaran</p>
+              <p class="sig-title">Guru ${currentUser.mapel || 'Mata Pelajaran'}</p>
               <div class="sig-space"></div>
               <span class="sig-name">${currentUser.name}</span>
               <p class="sig-nip">NIP. ${currentUser.nip || '-'}</p>
