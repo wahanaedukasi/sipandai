@@ -35,7 +35,7 @@
     const CONFIG = {
       SPREADSHEET_ID: '10IBqvGho3kasu79HS3mw60OGX-dVKOcRoCLQN_niglU',
       SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwWIbTXQuJQj_bV5wY-tGj363OzTTrGT5JFCAfua0qzeXUNnl-TfzBmPtw58-Md-pI4Gw/exec',
-      DRIVE_FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID'
+      DRIVE_FOLDER_ID: '1Byrx5kjCOPiqFC5HsEFikVxujI9zRLnL'
     };
 
     // State Management
@@ -124,13 +124,19 @@
         const response = await fetch(CONFIG.SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          redirect: 'follow',
           body: JSON.stringify(payload)
         });
         const text = await response.text();
-        return JSON.parse(text);
+        try {
+          return JSON.parse(text);
+        } catch (parseErr) {
+          console.error('Response bukan JSON:', text.substring(0, 200));
+          return { success: false, message: 'Server tidak merespons dengan benar. Coba lagi.' };
+        }
       } catch (error) {
         console.error('Post error:', error);
-        return { success: false, error: error.message };
+        return { success: false, message: error.message };
       }
     }
 
@@ -150,20 +156,42 @@
       return { success: false, error: 'Max retries exceeded' };
     }
 
-    async function uploadToDrive(file) {
+    async function uploadToDrive(file, tipeUpload = 'jurnal') {
+      // Validasi ukuran file (maks 10MB)
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_SIZE) {
+        return { success: false, message: 'Ukuran file terlalu besar. Maksimal 10MB.' };
+      }
+
+      // Validasi tipe file
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        return { success: false, message: 'Tipe file tidak didukung. Gunakan JPG, PNG, atau PDF.' };
+      }
+
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
-          const base64 = e.target.result.split(',')[1];
-          const result = await postToSheet('uploadFile', {
-            fileName: file.name,
-            mimeType: file.type,
-            base64Data: base64,
-            folderId: CONFIG.DRIVE_FOLDER_ID,
-            timestamp: new Date().toISOString()
-          });
-          resolve(result);
+          try {
+            const base64 = e.target.result.split(',')[1];
+            const result = await postToSheet('uploadFile', {
+              fileName: file.name,
+              mimeType: file.type,
+              base64Data: base64,
+              folderId: CONFIG.DRIVE_FOLDER_ID,
+              tipeUpload: tipeUpload,
+              userId: currentUser?.id || 'unknown',
+              userRole: currentUser?.role || 'unknown',
+              schoolId: currentUser?.schoolId || 'unknown',
+              guruNama: currentUser?.name || '',
+              timestamp: new Date().toISOString()
+            });
+            resolve(result);
+          } catch (err) {
+            resolve({ success: false, message: 'Gagal membaca file: ' + err.message });
+          }
         };
+        reader.onerror = () => resolve({ success: false, message: 'Gagal membaca file. Coba lagi.' });
         reader.readAsDataURL(file);
       });
     }
@@ -582,8 +610,15 @@
     function handleFileSelect(input) {
       const file = input.files[0];
       if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          showMessage('jurnal-message', 'File terlalu besar. Maksimal 5MB', 'error');
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+          showMessage('jurnal-message', 'Tipe file tidak didukung. Gunakan JPG, PNG, atau PDF.', 'error');
+          input.value = '';
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          showMessage('jurnal-message', 'File terlalu besar. Maksimal 10MB.', 'error');
+          input.value = '';
           return;
         }
         selectedFile = file;
@@ -616,13 +651,15 @@
           statusEl.textContent = '📤 Mengupload dokumentasi ke Google Drive...';
           statusEl.classList.remove('hidden');
           
-          const uploadResult = await uploadToDrive(selectedFile);
+          const uploadResult = await uploadToDrive(selectedFile, 'jurnal');
           if (uploadResult.success) {
             docLink = uploadResult.data.fileUrl || '';
             docFileName = uploadResult.data.fileName || selectedFile.name;
             statusEl.textContent = '✓ Dokumentasi berhasil diupload ke Drive';
           } else {
-            showMessage('jurnal-message', 'Gagal upload file, tapi jurnal tetap disimpan', 'error');
+            const errMsg = uploadResult.message || uploadResult.error || 'Gagal upload file';
+            statusEl.textContent = '⚠️ ' + errMsg + '. Jurnal tetap disimpan tanpa dokumentasi.';
+            statusEl.className = 'text-sm p-3 rounded-lg bg-red-50 text-red-600';
           }
         }
 
@@ -2489,13 +2526,17 @@
             statusEl.classList.remove('hidden');
           }
           
-          const uploadResult = await uploadToDrive(selectedMasukanFile);
+          const uploadResult = await uploadToDrive(selectedMasukanFile, 'masukan');
           if (uploadResult.success) {
             docLink = uploadResult.data.fileUrl || '';
             docFileName = uploadResult.data.fileName || selectedMasukanFile.name;
             if (statusEl) statusEl.textContent = '✓ Dokumentasi berhasil diupload ke Drive';
           } else {
-            showMessage('masukan-message', 'Gagal upload file, tapi masukan tetap disimpan', 'error');
+            const errMsg = uploadResult.message || uploadResult.error || 'Gagal upload file';
+            if (statusEl) {
+              statusEl.textContent = '⚠️ ' + errMsg + '. Masukan tetap disimpan tanpa dokumentasi.';
+              statusEl.className = 'text-sm p-3 rounded-lg bg-red-50 text-red-600';
+            }
           }
         }
 
