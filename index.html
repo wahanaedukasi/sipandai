@@ -1109,7 +1109,7 @@
             <!-- Kanan: Guru -->
             <div class="sig-block right">
               <p class="sig-title">${currentUser.schoolName}, ${today}</p>
-              <p class="sig-title">Guru ${currentUser.mapel || 'Mata Pelajaran'}</p>
+              <p class="sig-title">Guru ${(currentUser.mapel || 'Mata Pelajaran').replace(/^guru\s*/i, '')}</p>
               <div class="sig-space"></div>
               <span class="sig-name">${currentUser.name}</span>
               <p class="sig-nip">NIP. ${currentUser.nip || '-'}</p>
